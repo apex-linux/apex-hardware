@@ -64,6 +64,83 @@ class ResumedTest(unittest.TestCase):
         self.assertIn("hardware sleep", found.value)
 
 
+class ProfileTest(unittest.TestCase):
+
+    def _host(self, active: str, platform: str | None) -> FakeHost:
+        files = {
+            "/sys/devices/system/cpu/cpufreq/policy0/"
+            "energy_performance_preference": "performance"
+        }
+        if platform is not None:
+            files["/sys/firmware/acpi/platform_profile"] = platform
+        return FakeHost(
+            files=files,
+            commands={tuple(cpu.PROFILE_COMMAND): _ok(f's "{active}"\n')},
+        )
+
+    def test_passes_when_firmware_follows(self) -> None:
+        found = cpu.probe_profile("performance")(
+            self._host("performance", "performance")
+        )
+        self.assertIs(found.status, PASS, found.value)
+
+    def test_power_saver_accepts_quiet(self) -> None:
+        found = cpu.probe_profile("power-saver")(
+            self._host("power-saver", "quiet")
+        )
+        self.assertIs(found.status, PASS, found.value)
+
+    def test_fails_when_firmware_lags(self) -> None:
+        found = cpu.probe_profile("performance")(
+            self._host("performance", "balanced")
+        )
+        self.assertIn("platform_profile is balanced", found.value)
+
+    def test_fails_when_the_profile_did_not_change(self) -> None:
+        found = cpu.probe_profile("performance")(self._host("balanced", None))
+        self.assertIs(found.status, FAIL)
+
+
+class PamTest(unittest.TestCase):
+
+    def test_fedora_authselect_stack(self) -> None:
+        host = FakeHost(
+            files={
+                "/usr/lib/pam.d/gdm-fingerprint": (
+                    "auth  substack  fingerprint-auth\n"
+                ),
+                "/etc/pam.d/fingerprint-auth": (
+                    "auth  sufficient  pam_fprintd.so\n"
+                ),
+                "/etc/pam.d/polkit-1": "auth include system-auth\n",
+                "/etc/pam.d/system-auth": "auth required pam_unix.so\n",
+            }
+        )
+        unlock = fingerprint.probe_pam("gdm-fingerprint")(host)
+        authorize = fingerprint.probe_pam("polkit-1")(host)
+        self.assertIs(unlock.status, PASS, unlock.value)
+        self.assertIs(authorize.status, FAIL)
+        self.assertIn("with-fingerprint", authorize.value)
+
+    def test_debian_include_and_etc_override(self) -> None:
+        host = FakeHost(
+            files={
+                "/usr/lib/pam.d/polkit-1": "@include common-auth\n",
+                "/etc/pam.d/common-auth": (
+                    "# auth sufficient pam_fprintd.so\n"
+                    "auth [success=2 default=ignore] pam_fprintd.so"
+                    " max-tries=1\n"
+                ),
+                "/etc/pam.d/gdm-fingerprint": "auth required pam_deny.so\n",
+                "/usr/lib/pam.d/gdm-fingerprint": (
+                    "auth required pam_fprintd.so\n"
+                ),
+            }
+        )
+        self.assertTrue(fingerprint.uses_fprintd(host, "polkit-1"))
+        self.assertFalse(fingerprint.uses_fprintd(host, "gdm-fingerprint"))
+
+
 class EnrolledTest(unittest.TestCase):
 
     def _host(self, listing: str) -> FakeHost:

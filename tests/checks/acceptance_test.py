@@ -90,20 +90,17 @@ class RunTest(unittest.TestCase):
             ("cpu", _fixed("cpu", Status.PASS)),
             ("wifi", _wifi),
         ]
-        records = acceptance.run(
-            checks, host, ScriptedPerson([True, True], act)
-        )
+        records = acceptance.run(checks, host, ScriptedPerson([True], act))
         cpu, wifi = records[0], records[1]
         self.assertEqual(
-            [e.step for e in cpu.evidence],
-            [
-                "automated",
-                guides.SUSPEND_NAME,
-                "after resume",
-                "power profiles",
-            ],
+            [e.step for e in cpu.evidence][:3],
+            ["automated", guides.SUSPEND_NAME, "after resume"],
         )
-        self.assertIs(cpu.result.status, Status.PASS, cpu.result.value)
+        self.assertEqual(
+            [e.status for e in cpu.evidence][:3], [Status.PASS] * 3
+        )
+        # The power mode steps were skipped: the script ran out.
+        self.assertIs(cpu.result.status, Status.NEEDS_PERSON)
         self.assertIs(wifi.result.status, Status.PASS, wifi.result.value)
         self.assertEqual(host.slept, 3)
 

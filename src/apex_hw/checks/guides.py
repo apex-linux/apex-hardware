@@ -73,15 +73,17 @@ GUIDES: dict[str, tuple[Step, ...]] = {
             probe=gpu.check_dgpu,
         ),
     ),
-    cpu.ROW: (
+    cpu.ROW: tuple(
         Step(
-            name="power profiles",
-            do=(
-                "Open Quick Settings (top right) and switch the power mode"
-                " to Power Saver, then Performance, then back to Balanced."
-            ),
-            ask="Did each mode apply without an error?",
-        ),
+            name=f"{label} mode",
+            do=f"Open Quick Settings (top right) and choose {label} mode.",
+            probe=cpu.probe_profile(profile),
+        )
+        for profile, label in (
+            ("performance", "Performance"),
+            ("power-saver", "Power Saver"),
+            ("balanced", "Balanced"),
+        )
     ),
     display.ROW: (
         Step(
@@ -160,6 +162,7 @@ GUIDES: dict[str, tuple[Step, ...]] = {
             name="unlock",
             do="Lock the screen with Super+L, then unlock it with your finger.",
             ask="Did your finger unlock the screen?",
+            probe=fingerprint.probe_pam("gdm-fingerprint"),
         ),
         Step(
             name="authorize",
@@ -168,6 +171,7 @@ GUIDES: dict[str, tuple[Step, ...]] = {
                 " it asks."
             ),
             ask="Did your finger authorize it without the password?",
+            probe=fingerprint.probe_pam("polkit-1"),
         ),
     ),
     webcam.ROW: (

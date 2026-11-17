@@ -3,6 +3,7 @@
 Enrolling, unlocking and authorizing need a finger; see docs.
 """
 
+from collections.abc import Callable
 import re
 
 from apex_hw.checks import devices
@@ -41,6 +42,73 @@ def probe_enrolled(host: host_lib.Host) -> result.Result:
     if not count:
         return result.failed(ROW, "fprintd lists no enrolled finger")
     return result.passed(ROW, f"{count} fingers enrolled")
+
+
+# /etc overrides the vendor's /usr/lib, as PAM itself reads them.
+_PAM_DIRS = ("/etc/pam.d", "/usr/lib/pam.d")
+
+
+def uses_fprintd(host: host_lib.Host, service: str, depth: int = 0) -> bool:
+    """Returns whether a PAM service's auth stack reaches pam_fprintd.
+
+    Follows "include" and "substack" lines (Fedora's authselect) and
+    "@include" (Debian) a few levels deep.
+    """
+    text = next(
+        (
+            found
+            for found in (host.read(f"{d}/{service}") for d in _PAM_DIRS)
+            if found is not None
+        ),
+        "",
+    )
+    for line in text.splitlines():
+        fields = line.split("#", 1)[0].split()
+        if len(fields) > 1 and fields[0] == "@include":
+            nested = fields[1]
+        elif fields and fields[0] in ("auth", "-auth"):
+            control, module = _control_and_module(fields[1:])
+            if module.endswith("pam_fprintd.so"):
+                return True
+            nested = module if control in ("include", "substack") else ""
+        else:
+            nested = ""
+        if nested and depth < 4 and uses_fprintd(host, nested, depth + 1):
+            return True
+    return False
+
+
+def _control_and_module(fields: list[str]) -> tuple[str, str]:
+    """Splits "[a=b c=d] pam_x.so args" or "sufficient pam_x.so args"."""
+    if not fields:
+        return "", ""
+    if fields[0].startswith("["):
+        for index, field in enumerate(fields):
+            if field.endswith("]"):
+                rest = fields[index + 1 :]
+                return "[...]", rest[0] if rest else ""
+        return "[...]", ""
+    return fields[0], fields[1] if len(fields) > 1 else ""
+
+
+def probe_pam(service: str) -> Callable[[host_lib.Host], result.Result]:
+    """Returns a check that a PAM service accepts a finger.
+
+    Args:
+        service: "gdm-fingerprint" for the lock screen, "polkit-1" for
+            authorizations.
+    """
+
+    def probe(host: host_lib.Host) -> result.Result:
+        if uses_fprintd(host, service):
+            return result.passed(ROW, f"PAM {service} uses pam_fprintd")
+        return result.failed(
+            ROW,
+            f"PAM {service} does not use pam_fprintd (authselect"
+            " with-fingerprint is off)",
+        )
+
+    return probe
 
 
 def check(host: host_lib.Host) -> result.Result:

@@ -25,6 +25,40 @@ def active_profile(output: str) -> str | None:
     return found.group(1) if found else None
 
 
+# platform_profile values that match each power profile.
+_PLATFORM = {
+    "performance": ("performance",),
+    "balanced": ("balanced",),
+    "power-saver": ("low-power", "quiet"),
+}
+
+
+def probe_profile(wanted: str) -> Callable[[host_lib.Host], result.Result]:
+    """Returns a check that a power profile is active and reached firmware.
+
+    Args:
+        wanted: "performance", "balanced" or "power-saver".
+    """
+
+    def probe(host: host_lib.Host) -> result.Result:
+        done = host.run(PROFILE_COMMAND)
+        active = active_profile(done.stdout) if done else None
+        if active != wanted:
+            return result.failed(ROW, f"active profile {active}, not {wanted}")
+        platform = host.read("/sys/firmware/acpi/platform_profile")
+        epp = host.read(f"{_POLICY}/energy_performance_preference")
+        facts = f"profile {active}, EPP {epp}"
+        if platform is None:
+            return result.passed(ROW, f"{facts}, no platform_profile")
+        if platform not in _PLATFORM[wanted]:
+            return result.failed(
+                ROW, f"{facts}, but platform_profile is {platform}"
+            )
+        return result.passed(ROW, f"{facts}, platform_profile {platform}")
+
+    return probe
+
+
 def probe_resumed(before: int) -> Callable[[host_lib.Host], result.Result]:
     """Returns a check that a suspend succeeded since `before` suspends.
 
