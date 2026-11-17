@@ -24,6 +24,25 @@ def known_readers(hwdb: str) -> set[str]:
     }
 
 
+def _fprintd_list(host: host_lib.Host) -> host_lib.Command | None:
+    """Lists the current user's fingers."""
+    return host.run(["fprintd-list", host.env("USER") or "root"])
+
+
+def enrolled(output: str) -> int:
+    """Counts the fingers in `fprintd-list` output."""
+    return len(re.findall(r"^ - #\d+:", output, re.MULTILINE))
+
+
+def probe_enrolled(host: host_lib.Host) -> result.Result:
+    """Checks that the current user has at least one finger enrolled."""
+    done = _fprintd_list(host)
+    count = enrolled(done.stdout) if done else 0
+    if not count:
+        return result.failed(ROW, "fprintd lists no enrolled finger")
+    return result.passed(ROW, f"{count} fingers enrolled")
+
+
 def check(host: host_lib.Host) -> result.Result:
     """Checks that fprintd lists the reader for the current user."""
     known: set[str] = set()
@@ -33,8 +52,7 @@ def check(host: host_lib.Host) -> result.Result:
     if not readers:
         return result.absent(ROW, "no reader that libfprint lists")
     reader = readers[0]
-    user = host.env("USER") or "root"
-    done = host.run(["fprintd-list", user])
+    done = _fprintd_list(host)
     output = done.stdout if done else ""
     name = re.search(r"Fingerprints for user \S+ on (.+?) \(", output)
     none = re.search(r"has no fingers enrolled for (.+?)\.", output)
@@ -44,7 +62,7 @@ def check(host: host_lib.Host) -> result.Result:
         problems.append("fprintd-list is not installed")
     elif sensor is None:
         problems.append("fprintd does not list the reader")
-    fingers = len(re.findall(r"^ - #\d+:", output, re.MULTILINE))
+    fingers = enrolled(output)
     version = devices.package_version(
         host, "libfprint"
     ) or devices.package_version(host, "libfprint-2-2")

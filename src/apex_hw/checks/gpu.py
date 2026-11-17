@@ -105,6 +105,17 @@ def _nvidia_view(
     return problems, facts
 
 
+def probe_offload(host: host_lib.Host) -> result.Result:
+    """Checks that the discrete GPU woke up for an app launched on it."""
+    _, other = _split(host)
+    if not other:
+        return result.absent(DGPU_ROW, "no second GPU")
+    status = host.read(f"{other[0].path}/power/runtime_status")
+    if status != "active":
+        return result.failed(DGPU_ROW, f"runtime status {status}, not active")
+    return result.passed(DGPU_ROW, "runtime status active")
+
+
 def check_dgpu(host: host_lib.Host) -> result.Result:
     """Checks that the discrete GPU is runtime-suspended in D3cold.
 

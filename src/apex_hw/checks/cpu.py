@@ -1,5 +1,6 @@
 """CPU: frequency scaling, power profiles, suspend (s2idle) and resume."""
 
+from collections.abc import Callable
 import re
 
 from apex_hw.checks import devices
@@ -22,6 +23,26 @@ def active_profile(output: str) -> str | None:
     """Parses busctl's 's "balanced"' into "balanced"."""
     found = re.fullmatch(r's "([^"]*)"', output.strip())
     return found.group(1) if found else None
+
+
+def probe_resumed(before: int) -> Callable[[host_lib.Host], result.Result]:
+    """Returns a check that a suspend succeeded since `before` suspends.
+
+    Args:
+        before: The suspend count when the person was asked to suspend.
+    """
+
+    def probe(host: host_lib.Host) -> result.Result:
+        after = devices.suspend_count(host)
+        if after <= before:
+            return result.failed(ROW, "no successful suspend was counted")
+        hw_sleep = host.read("/sys/power/suspend_stats/last_hw_sleep")
+        if hw_sleep == "0":
+            return result.failed(ROW, "the s2idle never reached hardware sleep")
+        slept = f", hardware sleep {hw_sleep} us" if hw_sleep else ""
+        return result.passed(ROW, f"suspend {after} of this boot{slept}")
+
+    return probe
 
 
 def check(host: host_lib.Host) -> result.Result:
