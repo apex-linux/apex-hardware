@@ -38,7 +38,7 @@ next to the output.
 | --- | --- | --- | --- |
 | `cpu` | Always | cpufreq driver, governor and EPP; a power profile on D-Bus; s2idle or deep offered; no failed suspend this boot; the last s2idle reached hardware sleep | Switch the three profiles in Quick Settings; suspend, wake, run again |
 | `igpu` | The `boot_vga` GPU | Driver bound; a connected display; the session is Wayland | None |
-| `dgpu` | Any other display controller | `power/control` is `auto`; runtime-suspended within 15 s; `D3cold`; suspended share since boot | Launch an app with "Launch using Discrete Graphics Card", then run `dgpu` again |
+| `dgpu` | Any other display controller | `power/control` is `auto`; runtime-suspended within 15 s; `D3cold`; suspended share since boot; with `nvidia` bound, the driver's runtime D3 status is `Enabled` and its power parameters | Launch an app with "Launch using Discrete Graphics Card", then run `dgpu` again |
 | `display` | A connected eDP, LVDS or DSI connector | The panel runs its largest mode at its highest refresh rate; backlight control; scale 2 on the reference panel (SDC `0x4154`) | Move the brightness slider |
 | `wifi` | A wireless interface | Driver bound; NetworkManager connected | Suspend, wake, run again |
 | `bluetooth` | An HCI controller | Driver bound; its rfkill not blocked; powered; paired device count | Pair headphones and a mouse; play audio through them |

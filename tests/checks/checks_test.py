@@ -53,6 +53,9 @@ def _gpus(nvidia_status: str = "suspended") -> FakeHost:
             ),
             f"{NVIDIA}/power/runtime_suspended_time": "900",
             f"{NVIDIA}/power/runtime_active_time": "100",
+            "/proc/driver/nvidia/gpus/0000:01:00.0/power": (
+                "Runtime D3 status:          Enabled (fine-grained)\n"
+            ),
             "/sys/bus/pci/drivers/amdgpu/bind": "",
         },
         links={
@@ -69,6 +72,29 @@ class GpuTest(unittest.TestCase):
         found = gpu.check_dgpu(_gpus())
         self.assertIs(found.status, PASS, found.value)
         self.assertIn("90.0%", found.value)
+
+    def test_dgpu_reports_the_nvidia_view(self) -> None:
+        host = _gpus()
+        host.files["/proc/driver/nvidia/params"] = (
+            "DynamicPowerManagement: 3\nUseKernelSuspendNotifiers: 1\n"
+            "EnableS0ixPowerManagement: 1\n"
+        )
+        host.files["/proc/driver/nvidia/gpus/0000:01:00.0/power"] = (
+            "Runtime D3 status:          Enabled (fine-grained)\n"
+        )
+        found = gpu.check_dgpu(host)
+        self.assertIs(found.status, PASS, found.value)
+        self.assertIn("runtime D3 Enabled (fine-grained)", found.value)
+        self.assertIn("UseKernelSuspendNotifiers 1", found.value)
+
+    def test_dgpu_fails_when_nvidia_disables_runtime_d3(self) -> None:
+        host = _gpus()
+        host.files["/proc/driver/nvidia/gpus/0000:01:00.0/power"] = (
+            "Runtime D3 status:          Disabled by default\n"
+        )
+        found = gpu.check_dgpu(host)
+        self.assertIs(found.status, FAIL)
+        self.assertIn("runtime D3 is Disabled by default", found.value)
 
     def test_dgpu_fails_when_awake_after_waiting(self) -> None:
         host = _gpus("active")
