@@ -5,6 +5,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 INSTALL = ROOT / "scripts" / "install.sh"
@@ -53,6 +54,54 @@ class InstallTest(unittest.TestCase):
             )
             self.assertEqual(done.returncode, 0, done.stderr)
             self.assertIn("--json", done.stdout)
+
+    def test_installed_checker_runs_from_the_tree(self) -> None:
+        with tempfile.TemporaryDirectory() as destdir:
+            subprocess.run([INSTALL, destdir], check=True)
+            command = pathlib.Path(destdir, "usr/bin/apex-accept")
+            self.assertEqual(
+                command.readlink(),
+                pathlib.Path("../libexec/apex-hardware/accept"),
+            )
+            listed = subprocess.run(
+                [sys.executable, "-I", command, "--list"],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            self.assertIn("fingerprint", listed.stdout.split())
+            one = subprocess.run(
+                [sys.executable, "-I", command, "storage", "--json"],
+                capture_output=True,
+                text=True,
+                check=False,
+                cwd=destdir,
+            )
+            self.assertIn(one.returncode, (0, 1), one.stderr)
+            self.assertIn('"row": "storage"', one.stdout)
+
+    def test_stamps_the_checker_version(self) -> None:
+        with tempfile.TemporaryDirectory() as destdir:
+            subprocess.run([INSTALL, destdir], check=True)
+            program = pathlib.Path(destdir, "usr/libexec/apex-hardware/accept")
+            with program.open("rb") as file:
+                self.assertEqual(file.readline(), b"#!/usr/bin/python3 -I\n")
+            with zipfile.ZipFile(program) as archive:
+                names = archive.namelist()
+                version = archive.read("apex_hw/version.txt").decode()
+            self.assertTrue(version.strip())
+            self.assertFalse(any("testkit" in name for name in names))
+
+    def test_installs_the_requirements(self) -> None:
+        with tempfile.TemporaryDirectory() as destdir:
+            subprocess.run([INSTALL, destdir], check=True)
+            installed = pathlib.Path(
+                destdir, "usr/share/apex-hardware/requires.txt"
+            )
+            self.assertEqual(
+                installed.read_text(encoding="utf-8"),
+                (ROOT / "requires.txt").read_text(encoding="utf-8"),
+            )
 
     def test_flavor_adds_its_files_to_the_base(self) -> None:
         for flavor in sorted(FLAVORS.iterdir()):

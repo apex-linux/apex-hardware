@@ -23,9 +23,17 @@ An image flavor adds its own components from `flavors/<flavor>/`:
 `just install <destdir> nvidia` installs everything the base image gets,
 plus the files that only the NVIDIA flavor needs.
 
-It also installs the acceptance checks as
-`/usr/libexec/apex-hardware/accept`: one check per row of the reference
-machine table, described in [docs/acceptance.md](docs/acceptance.md).
+It also installs the acceptance checks as `apex-accept` (a link to
+`/usr/libexec/apex-hardware/accept`, one Python zip that needs only the
+image's `python3`): one check per row of the reference machine table,
+described in [docs/acceptance.md](docs/acceptance.md). Runs on the machine
+are recorded in [docs/records/](docs/records/).
+
+[`requires.txt`](requires.txt), installed as
+`/usr/share/apex-hardware/requires.txt`, lists the Fedora packages the
+image must carry for the rules and checks, each with a path the package
+installs, so that an image build can install them and then test that every
+path exists.
 
 Patches to upstream projects that Apex rebuilds, such as libfprint, are in
 `patches/<project>/` with a `series` file; they are not installed.
