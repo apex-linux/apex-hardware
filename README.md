@@ -27,6 +27,9 @@ It also installs the acceptance checks as
 `/usr/libexec/apex-hardware/accept`: one check per row of the reference
 machine table, described in [docs/acceptance.md](docs/acceptance.md).
 
+Patches to upstream projects that Apex rebuilds, such as libfprint, are in
+`patches/<project>/` with a `series` file; they are not installed.
+
 Decisions about hard hardware problems, such as how the NVIDIA driver gets
 into the image, are in [docs/adr/](docs/adr/).
 
