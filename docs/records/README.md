@@ -14,7 +14,7 @@ machine, named `<date>-<os id>-<version>`:
 
 Copy both files here unchanged, in one pull request per run, titled after
 the record, for example "Record the 2026-11-20 acceptance run on Apex 45".
-The run book in [acceptance.md](../acceptance.md) says how.
+The [run book](../acceptance.md#run-book) says how.
 
 Records from before Apex, measured on the previous system, are in
 [baselines/](../baselines/).
