@@ -23,6 +23,15 @@ from apex_hw.platform import host as host_lib
 
 Probe = Callable[[host_lib.Host], result.Result]
 
+# The apps the steps open, by the name GNOME shows, and the Fedora RPM
+# that ships each one. All are RPMs in the image; requires.txt lists them.
+APPS = {
+    "Settings": "gnome-control-center",
+    "Text Editor": "gnome-text-editor",
+    "Camera": "snapshot",
+    "Firefox": "firefox",
+}
+
 # A browser page from Mozilla that shows the camera after a permission
 # prompt; it exercises the same camera portal as a video call.
 CAMERA_TEST_PAGE = "https://mozilla.github.io/webrtc-landing/gum_test.html"
@@ -183,7 +192,7 @@ GUIDES: dict[str, tuple[Step, ...]] = {
         Step(
             name="browser",
             do=(
-                f"Close Camera. In the browser, open {CAMERA_TEST_PAGE},"
+                f"Close Camera. In Firefox, open {CAMERA_TEST_PAGE},"
                 " press the video button and allow the camera."
             ),
             ask="Do you see a live picture in the page?",
