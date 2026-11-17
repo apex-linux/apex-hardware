@@ -9,12 +9,13 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 INSTALL = ROOT / "scripts" / "install.sh"
 COMPONENTS = ROOT / "components"
+FLAVORS = ROOT / "flavors"
 
 
-def _component_files() -> list[pathlib.Path]:
-    """Returns every file under components/*/usr, relative to its usr/."""
+def _component_files(parent: pathlib.Path = COMPONENTS) -> list[pathlib.Path]:
+    """Returns every file under <parent>/*/usr, relative to its usr/."""
     files: list[pathlib.Path] = []
-    for tree in sorted(COMPONENTS.glob("*/usr")):
+    for tree in sorted(parent.glob("*/usr")):
         files.extend(
             path.relative_to(tree) for path in tree.rglob("*") if path.is_file()
         )
@@ -53,6 +54,35 @@ class InstallTest(unittest.TestCase):
             self.assertEqual(done.returncode, 0, done.stderr)
             self.assertIn("--json", done.stdout)
 
+    def test_flavor_adds_its_files_to_the_base(self) -> None:
+        for flavor in sorted(FLAVORS.iterdir()):
+            with self.subTest(flavor=flavor.name):
+                with tempfile.TemporaryDirectory() as destdir:
+                    subprocess.run([INSTALL, destdir, flavor.name], check=True)
+                    usr = pathlib.Path(destdir, "usr")
+                    for relative in _component_files() + _component_files(
+                        flavor
+                    ):
+                        self.assertTrue((usr / relative).is_file(), relative)
+
+    def test_base_install_has_no_flavor_files(self) -> None:
+        with tempfile.TemporaryDirectory() as destdir:
+            subprocess.run([INSTALL, destdir], check=True)
+            for flavor in sorted(FLAVORS.iterdir()):
+                for relative in _component_files(flavor):
+                    with self.subTest(path=str(relative)):
+                        installed = pathlib.Path(destdir, "usr", relative)
+                        self.assertFalse(installed.exists())
+
+    def test_rejects_an_unknown_flavor(self) -> None:
+        with tempfile.TemporaryDirectory() as destdir:
+            result = subprocess.run(
+                [INSTALL, destdir, "no-such-flavor"],
+                capture_output=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 2)
+
     def test_requires_a_destdir(self) -> None:
         result = subprocess.run([INSTALL], capture_output=True, check=False)
         self.assertEqual(result.returncode, 2)
@@ -63,7 +93,8 @@ class LayoutTest(unittest.TestCase):
     """Checks the shape of components/."""
 
     def test_components_hold_only_usr_and_a_readme(self) -> None:
-        for component in sorted(COMPONENTS.iterdir()):
+        dirs = [*COMPONENTS.iterdir(), *FLAVORS.glob("*/*")]
+        for component in sorted(dirs):
             if not component.is_dir():
                 continue
             with self.subTest(component=component.name):
@@ -72,8 +103,12 @@ class LayoutTest(unittest.TestCase):
                 self.assertIn("README.md", entries)
 
     def test_no_two_components_install_the_same_path(self) -> None:
-        files = _component_files()
-        self.assertEqual(len(files), len(set(files)))
+        for flavor in [None, *sorted(FLAVORS.iterdir())]:
+            files = _component_files()
+            if flavor is not None:
+                files += _component_files(flavor)
+            with self.subTest(flavor=flavor.name if flavor else "base"):
+                self.assertEqual(len(files), len(set(files)))
 
 
 if __name__ == "__main__":

@@ -19,6 +19,10 @@ graphics or a vendor's battery interface. It holds a `README.md` that says
 which hardware it matches and why each file exists, and a `usr/` tree that
 is copied into the image as it is.
 
+An image flavor adds its own components from `flavors/<flavor>/`:
+`just install <destdir> nvidia` installs everything the base image gets,
+plus the files that only the NVIDIA flavor needs.
+
 It also installs the acceptance checks as
 `/usr/libexec/apex-hardware/accept`: one check per row of the reference
 machine table, described in [docs/acceptance.md](docs/acceptance.md).
@@ -36,6 +40,7 @@ linter that the recipes use.
 just lint
 just test
 just install build/root
+just install build/root-nvidia nvidia
 just accept
 ```
 
