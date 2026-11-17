@@ -1,7 +1,8 @@
 # ADR 0002: Carry the ELAN 04f3:0c6e retry patches on Fedora 45
 
-*   Status: proposed
-*   Date: 2026-11-17
+*   Status: proposed; accepted once `apex-image` ships the rebuilt
+    `libfprint`
+*   Date: 2026-11-17, revised for M1 the same day (fingerprint in PAM)
 *   Decides for: `apex-image` (a rebuilt `libfprint`) and this repository
 
 ## Context
@@ -49,18 +50,26 @@ Facts as of 2026-11-17:
     reference machine, report the result there with the pre-scan bytes the
     patched build logs, and offer 0002's bounded retry as a follow-up on top
     of it.
-*   Keep fingerprint out of PAM until enrollment passes the acceptance row
-    three times in a row and verification has been measured. These patches
-    fix enrollment; reports with the retry fix still describe poor
-    verification in swipe mode, which only press mode (!530) addresses.
+*   Turn fingerprint on in PAM in the image (authselect's
+    `with-fingerprint` feature, so that `gdm-fingerprint`, `polkit-1` and
+    `sudo` accept a finger). The M1 row is "enroll, unlock, authorize", and
+    its unlock and authorize steps cannot pass otherwise. Fedora's default
+    `local` profile leaves the feature off; only an interactive Anaconda
+    install turns it on. The risk is small: `pam_fprintd` steps aside when
+    the user has no finger enrolled, and the password stays the fallback.
+    These patches fix enrollment; reports with the retry fix still describe
+    poor verification in swipe mode, which only press mode (!530)
+    addresses, so the row's unlock step is the measurement that decides
+    whether verification is good enough.
 
 ## Consequences
 
 *   Apex carries a rebuilt `libfprint` until !655 or an equivalent lands
     and reaches Fedora. Patch 0001 stops applying when it does, which is
     the signal to drop both.
-*   The `fingerprint` acceptance row passes on detection alone. Its manual
-    part, three enrollments in a row, decides whether the row is done.
+*   The `fingerprint` row passes only when three enrollments, an unlock and
+    an authorization all succeed. Its probes report a missing
+    `with-fingerprint` as the reason when unlock or authorize fail.
 
 ## Sources
 

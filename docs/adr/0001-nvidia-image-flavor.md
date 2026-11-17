@@ -1,7 +1,8 @@
 # ADR 0001: NVIDIA driver as an image flavor built from negativo17
 
-*   Status: proposed
-*   Date: 2026-11-17
+*   Status: proposed; accepted once `apex-image` builds the flavor this
+    way
+*   Date: 2026-11-17, revised for M1 the same day (unsigned module)
 *   Decides for: `apex-image` (the flavor build) and this repository (its
     rules and checks)
 
@@ -17,7 +18,9 @@ Facts as of 2026-11-17:
 
 *   Fedora 45 runs kernel 7.3: `quay.io/fedora/fedora-bootc:45` from
     2026-11-16 carries 7.3.3-300.fc45, and 7.3.4 is already stable in
-    Bodhi. The current NVIDIA branch is 620.70.06.
+    Bodhi. The release repository and the Workstation ISO have 7.2.11; 7.3
+    reaches a system through `f45-updates`. The current NVIDIA branch is
+    620.70.06.
 *   **No repository ships kernel modules prebuilt per Fedora kernel.**
     negativo17 and RPM Fusion ship akmods (negativo17 also DKMS); NVIDIA's
     CUDA repository has DKMS for Fedora 44 and no driver for 45 yet.
@@ -37,17 +40,23 @@ Facts as of 2026-11-17:
     build.
 *   On Ubuntu with 595.99.02 the reference GPU already reaches D3cold with
     fine-grained runtime D3 (see the baseline), so the hardware is capable.
+*   Fedora 45's kernel is built with `CONFIG_MODULE_SIG=y` and without
+    `CONFIG_MODULE_SIG_FORCE`; lockdown, which rejects unsigned modules,
+    comes only with Secure Boot (`CONFIG_LOCK_DOWN_IN_EFI_SECURE_BOOT=y`).
+    With Secure Boot off an unsigned module loads and taints the kernel
+    (`E`). The specification keeps Secure Boot off until a later milestone.
 
 ## Decision
 
 Build the flavor in `apex-image` from **negativo17**, with Apex building
-and signing the kernel module itself:
+the kernel module itself:
 
 1.  A builder stage from the same base image digest reads the kernel
     version with `rpm -q kernel-core`, installs `akmod-nvidia` and the
-    matching `kernel-devel`, and runs `akmods --force --kernels "${kver}"`
-    with the Apex module signing key from a build secret. Building outside
-    a bootc-marked root avoids rhbz#2459819.
+    matching `kernel-devel`, and runs `akmods --force --kernels "${kver}"`.
+    For M1 the module ships **unsigned**: no Apex signing key exists, and
+    no build secret holds one. Building outside a bootc-marked root avoids
+    rhbz#2459819.
 2.  The flavor stage installs that `kmod-nvidia` and the userspace from the
     same negativo17 snapshot. The build fails unless `modinfo -F vermagic`
     names the image's kernel and the kmod version equals `nvidia-driver`.
@@ -64,10 +73,15 @@ and signing the kernel module itself:
     the driver's view: `Runtime D3 status: Enabled (fine-grained)` and
     `UseKernelSuspendNotifiers: 1`.
 
+Signing the module is **M3 work**, together with image signing: creating
+the Apex module key, keeping it as a CI secret, enrolling it as a MOK, and
+the acceptance run with Secure Boot on. Creating that key and secret needs
+the owner's explicit approval.
+
 Universal Blue's prebuilt image is the fallback if the builder stage costs
 too much in CI. Using it means checking that its kernel label equals the
-base image's, and asking users to enroll Universal Blue's key instead of
-Apex's when Secure Boot comes.
+base image's; its modules are signed with Universal Blue's key, which does
+no harm with Secure Boot off.
 
 Suspend: negativo17 sets `NVreg_EnableS0ixPowerManagement=1`; Ubuntu runs
 with 0. Keep negativo17's value, measure an s2idle cycle with the `cpu` and
@@ -82,8 +96,10 @@ only if resume fails.
     That path is not yet measured on this machine.
 *   Each kernel update in the base image rebuilds the module; a rebuild that
     fails blocks the flavor, not the base image.
-*   Apex owns a module signing key. Secure Boot remains off for M1 as the
-    specification says; the key is what makes turning it on later possible.
+*   With Secure Boot off the unsigned module loads; the kernel reports
+    itself tainted, which is expected and harmless. Turning Secure Boot on
+    before M3 signs the module stops the NVIDIA driver from loading, and
+    the `dgpu` row then shows no `nvidia` driver bound.
 *   The 7.3 runtime D3 fix lives in negativo17 until NVIDIA ships it. The
     `dgpu` check catches a release that loses it.
 
@@ -102,3 +118,5 @@ only if resume fails.
 *   bootc kernel arguments:
     <https://github.com/bootc-dev/bootc/blob/main/docs/src/building/bootc-kernel-arguments.7.md>
 *   akmods in bootc builds: <https://bugzilla.redhat.com/show_bug.cgi?id=2459819>
+*   Fedora 45 kernel configuration: `kernel-x86_64-fedora.config` on the
+    `f45` branch of <https://src.fedoraproject.org/rpms/kernel>
