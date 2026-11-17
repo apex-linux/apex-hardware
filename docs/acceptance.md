@@ -27,9 +27,12 @@ from such a run in which every row is `PASS`.
     unsigned until M3, and with Secure Boot on it does not load.
 3.  **Have at hand:** wired headphones; Bluetooth headphones and a Bluetooth
     mouse or keyboard; a display with speakers (a TV works) and an HDMI
-    cable; a Wi-Fi network with internet access, for the browser camera
-    page.
-4.  **Start from a fresh boot:** power off, power on, log in to GNOME as
+    cable; a Wi-Fi network with internet access, for the camera page in
+    Firefox.
+4.  **The apps the steps open** are all in the image as RPMs, with no
+    Flatpak needed: Settings (`gnome-control-center`), Text Editor
+    (`gnome-text-editor`), Camera (`snapshot`) and Firefox (`firefox`).
+5.  **Start from a fresh boot:** power off, power on, log in to GNOME as
     your own user (not root), connect to Wi-Fi, and unplug the headphones
     and the HDMI cable. Leave the machine idle for a minute, so that the
     discrete GPU is asleep when the run starts.
@@ -53,7 +56,7 @@ needs nothing from you. Then it asks you, one step at a time:
     brightness slider; pair Bluetooth devices; test the speakers, the
     headphone jack and the microphone in Settings; connect the HDMI
     display; enroll a finger three times, unlock with it and authorize
-    `pkexec true` with it; look at Camera and the browser camera page; and
+    `pkexec true` with it; look at Camera and the camera page in Firefox; and
     try the gestures, the keyboard backlight and the function keys.
 
 Each step says what to do. When it shows `[Enter when done, s to skip]`,
@@ -162,7 +165,7 @@ also run their automated check again on a resumed machine.
 | `audio` | An analog HD audio codec | Pins wire an internal speaker, a headphone jack and an internal mic; PipeWire offers speaker and headphone routes and an analog input | Speakers left and right; headphones detected in the jack (probe) and playing; the internal mic's input level moves |
 | `hdmi_audio` | An HDMI or DisplayPort codec | Controller driver bound; playback devices; connected monitors with audio | A monitor with audio over HDMI (probe) shows the desktop; the HDMI output plays the test sound |
 | `fingerprint` | A USB reader that libfprint lists | fprintd lists it for this user; enrolled finger count; libfprint version | Three enrollments in Settings (probe: a finger is enrolled); unlock the lock screen (probe: `gdm-fingerprint` reaches `pam_fprintd`); authorize `pkexec true` (probe: `polkit-1` reaches `pam_fprintd`) |
-| `webcam` | A USB video class camera | `uvcvideo` bound; this user can open the node; PipeWire has a video source | A live picture in Camera and on a browser getUserMedia page |
+| `webcam` | A USB video class camera | `uvcvideo` bound; this user can open the node; PipeWire has a video source | A live picture in Camera and on a getUserMedia page in Firefox |
 | `storage` | An NVMe disk | The disk supports discard; `fstrim.timer` is enabled or `/` is mounted with discard | None |
 | `input` | An internal keyboard or touchpad | Internal keyboard; a touchpad with three-finger reports; a vendor hotkey device; keyboard backlight | Three-finger gestures; the keyboard backlight key; every function key |
 | `battery` | A battery with `charge_control_end_threshold` | UPower supports and enables the limit; sysfs equals UPower's end threshold; the threshold is below 100 | After resume (the limit is also re-applied at every boot, since the kernel resets it) |

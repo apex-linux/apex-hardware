@@ -33,6 +33,11 @@ polkit /usr/bin/pkexec
 util-linux /usr/lib/systemd/system/fstrim.timer
 # battery: UPower enforces the charge limit.
 upower /usr/libexec/upowerd
+# Guided steps: the apps they open (guides.APPS).
+gnome-control-center /usr/share/applications/org.gnome.Settings.desktop
+gnome-text-editor /usr/share/applications/org.gnome.TextEditor.desktop
+snapshot /usr/share/applications/org.gnome.Snapshot.desktop
+firefox /usr/share/applications/org.mozilla.firefox.desktop
 # firmware: the files in components/firmware's firmware.txt.
 amd-gpu-firmware /usr/lib/firmware/amdgpu/green_sardine_*
 nvidia-gpu-firmware /usr/lib/firmware/nvidia/ga107/gsp/gsp-*

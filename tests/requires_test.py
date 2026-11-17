@@ -5,6 +5,7 @@ import pathlib
 import re
 import unittest
 
+from apex_hw.checks import guides
 from apex_hw.kernel import firmware
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -74,6 +75,16 @@ class RequiresTest(unittest.TestCase):
         for entry in entries:
             with self.subTest(glob=entry.glob):
                 self.assertIn(f"/usr/lib/firmware/{entry.glob}", paths)
+
+    def test_every_guided_app_is_required(self) -> None:
+        rpms = {rpm for rpm, _ in _entries()}
+        steps = " ".join(
+            step.do for steps in guides.GUIDES.values() for step in steps
+        )
+        for app, rpm in guides.APPS.items():
+            with self.subTest(app=app):
+                self.assertIn(rpm, rpms)
+                self.assertIn(app, steps)
 
 
 if __name__ == "__main__":
