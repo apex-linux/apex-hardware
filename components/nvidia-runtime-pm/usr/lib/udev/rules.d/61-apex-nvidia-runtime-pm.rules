@@ -1,0 +1,17 @@
+# Matches: PCI functions with vendor 0x10de (NVIDIA) and class display
+#   (0x03xxxx), HD audio (0x040300), USB xHCI (0x0c0330) or USB Type-C UCSI
+#   (0x0c8000).
+# Why: the PCI core forbids runtime PM on every new device (power/control is
+#   "on") until a driver or udev allows it. nouveau allows it itself, but an
+#   unbound GPU never does, and NVIDIA's driver leaves it to udev rules (README
+#   chapter "PCI-Express Runtime D3 (RTD3) Power Management"). With "auto" an
+#   idle discrete GPU in a hybrid laptop suspends, and its root port can cut
+#   power (D3cold). "add" covers a GPU that no driver binds; "bind" covers the
+#   driver resetting the attribute. A GPU that drives a display stays awake
+#   because its driver holds a runtime PM reference.
+
+ACTION=="add|bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", \
+  ATTR{class}=="0x03[0-9]*", TEST=="power/control", ATTR{power/control}="auto"
+ACTION=="add|bind", SUBSYSTEM=="pci", ATTR{vendor}=="0x10de", \
+  ATTR{class}=="0x040300|0x0c0330|0x0c8000", TEST=="power/control", \
+  ATTR{power/control}="auto"
