@@ -7,7 +7,6 @@ resumed machine. Each row's verdict combines all of its evidence.
 """
 
 from collections.abc import Sequence
-import dataclasses
 
 from apex_hw.checks import cpu
 from apex_hw.checks import devices
@@ -19,6 +18,7 @@ from apex_hw.platform import host as host_lib
 from apex_hw.platform import person as person_lib
 
 Evidence = result.Evidence
+RowRecord = result.RowRecord
 Status = result.Status
 
 # How long a row may take to recover after a resume, in seconds.
@@ -30,14 +30,6 @@ INTRO = (
     " asks one question: answer y or n, or s to skip it. A skipped step"
     " leaves its row unfinished, not failed."
 )
-
-
-@dataclasses.dataclass(frozen=True)
-class RowRecord:
-    """A row's verdict and the evidence behind it."""
-
-    result: result.Result
-    evidence: tuple[Evidence, ...]
 
 
 def _safe(check: guides.Probe, row: str, host: host_lib.Host) -> result.Result:

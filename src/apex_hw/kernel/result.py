@@ -81,6 +81,14 @@ class Evidence:
     value: str
 
 
+@dataclasses.dataclass(frozen=True)
+class RowRecord:
+    """A row's verdict and the evidence behind it."""
+
+    result: Result
+    evidence: tuple[Evidence, ...]
+
+
 def combine(row: str, evidence: Sequence[Evidence]) -> Result:
     """Turns a row's evidence into its verdict.
 

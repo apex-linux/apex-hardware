@@ -18,8 +18,12 @@ just accept --json
 On an installed Apex without a clone, run the copy in the image:
 
 ```bash
-/usr/libexec/apex-hardware/accept
+apex-accept
 ```
+
+`apex-accept --list` lists the rows. A run of every row writes a dated
+record to `~/apex-acceptance/` (`--record-dir` to change it, `--no-record`
+to skip it); see [records/](records/).
 
 Each row prints `PASS`, `FAIL`, `TODO` when part of it still needs a
 person, or `SKIP` when the machine does not have that hardware, followed by
