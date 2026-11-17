@@ -1,0 +1,13 @@
+# Matches: the asus-nb-wmi platform driver binding (ASUS laptops with the
+#   ATK WMI interface), and through it every battery's power_supply device.
+# Why: asus-wmi adds charge_control_end_threshold to the battery with
+#   device_create_file(), which sends no uevent, after the battery's own "add"
+#   event. UPower's 60-upower-battery.rules imports CHARGE_LIMIT only if that
+#   file exists when the rule runs, so on a boot where the battery is handled
+#   first UPower reports no charge limit support. Binding happens after the
+#   driver's battery hook has added the file; a "change" event on the
+#   batteries makes udev run UPower's rule again. The trigger returns at once
+#   and does not match this rule again.
+
+ACTION=="bind", SUBSYSTEM=="platform", DRIVER=="asus-nb-wmi", \
+  RUN+="/usr/bin/udevadm trigger --action=change --subsystem-match=power_supply --attr-match=type=Battery"
