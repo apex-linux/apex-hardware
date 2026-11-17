@@ -72,6 +72,31 @@ def pipewire_routes(text: str) -> set[str]:
     return routes
 
 
+def available_routes(text: str) -> set[str]:
+    """Returns the routes that PipeWire marks available, such as a jack
+    with something plugged in."""
+    routes = set()
+    objects: list[dict[str, Any]] = json.loads(text)
+    for item in objects:
+        if item.get("type") != "PipeWire:Interface:Device":
+            continue
+        params = (item.get("info") or {}).get("params") or {}
+        for route in params.get("EnumRoute") or []:
+            if route.get("available") == "yes":
+                routes.add(str(route.get("name")))
+    return routes
+
+
+def probe_headphones(host: host_lib.Host) -> result.Result:
+    """Checks that PipeWire sees headphones in the jack."""
+    dump = host.run(["pw-dump"])
+    if dump is None or dump.returncode != 0:
+        return result.failed(ROW, "PipeWire not reachable")
+    if "analog-output-headphones" not in available_routes(dump.stdout):
+        return result.failed(ROW, "PipeWire sees nothing in the headphone jack")
+    return result.passed(ROW, "headphones detected in the jack")
+
+
 def check(host: host_lib.Host) -> result.Result:
     """Checks speakers, headphone jack and internal microphone."""
     codecs = _codecs(host, hdmi=False)
@@ -108,8 +133,20 @@ def check(host: host_lib.Host) -> result.Result:
     return result.judge(ROW, problems, facts)
 
 
-def check_hdmi(host: host_lib.Host) -> result.Result:
-    """Checks that an HDMI audio codec is probed with playback devices."""
+def probe_hdmi_monitor(host: host_lib.Host) -> result.Result:
+    """Checks that a display that takes audio is connected over HDMI."""
+    return check_hdmi(host, need_monitor=True)
+
+
+def check_hdmi(
+    host: host_lib.Host, need_monitor: bool = False
+) -> result.Result:
+    """Checks that an HDMI audio codec is probed with playback devices.
+
+    Args:
+        host: The machine.
+        need_monitor: Also require a connected monitor that takes audio.
+    """
     codecs = _codecs(host, hdmi=True)
     if not codecs:
         return result.absent(HDMI_ROW, "no HDMI audio codec")
@@ -126,6 +163,8 @@ def check_hdmi(host: host_lib.Host) -> result.Result:
     for eld in host.glob(f"/proc/asound/card{card}/eld#*"):
         if "monitor_present\t\t1" in (host.read(eld) or ""):
             present += 1
+    if need_monitor and not present:
+        problems.append("no monitor with audio is connected")
     ident = controller.ident if controller else "unknown"
     facts = [
         f"{ident} {host.read(f'{codec}/chip_name')}",

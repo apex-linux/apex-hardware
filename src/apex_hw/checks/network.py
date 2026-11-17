@@ -1,5 +1,7 @@
 """Wi-Fi and Bluetooth."""
 
+import re
+
 from apex_hw.checks import devices
 from apex_hw.kernel import result
 from apex_hw.platform import host as host_lib
@@ -42,6 +44,36 @@ def check_wifi(host: host_lib.Host) -> result.Result:
         f"{suspends} suspends this boot",
     ]
     return result.judge(WIFI_ROW, problems, facts)
+
+
+def bluetooth_kinds(host: host_lib.Host) -> set[str]:
+    """Returns the icon classes of connected paired devices: "audio", ..."""
+    paired = host.run(["bluetoothctl", "devices", "Paired"])
+    kinds = set()
+    for line in (paired.stdout if paired else "").splitlines():
+        fields = line.split()
+        if len(fields) < 2 or fields[0] != "Device":
+            continue
+        info = host.run(["bluetoothctl", "info", fields[1]])
+        text = info.stdout if info else ""
+        icon = re.search(r"^\s*Icon: (\w+)", text, re.MULTILINE)
+        if icon and re.search(r"^\s*Connected: yes", text, re.MULTILINE):
+            kinds.add(icon.group(1))
+    return kinds
+
+
+def probe_bluetooth_devices(host: host_lib.Host) -> result.Result:
+    """Checks that an audio device and an input device are connected."""
+    kinds = bluetooth_kinds(host)
+    missing = [kind for kind in ("audio", "input") if kind not in kinds]
+    connected = ", ".join(sorted(kinds)) or "none"
+    if missing:
+        wanted = " or ".join(missing)
+        return result.failed(
+            BLUETOOTH_ROW,
+            f"no connected {wanted} device; connected {connected}",
+        )
+    return result.passed(BLUETOOTH_ROW, f"connected {connected}")
 
 
 def check_bluetooth(host: host_lib.Host) -> result.Result:
