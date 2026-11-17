@@ -1,0 +1,72 @@
+[
+  {
+    "row": "dgpu",
+    "status": "pass",
+    "value": "10de:25a2 nvidia; control auto, suspended, D3cold; suspended 93.0% of the time since boot"
+  },
+  {
+    "row": "cpu",
+    "status": "pass",
+    "value": "amd-pstate-epp, governor powersave, EPP balance_performance; profile balanced; mem_sleep [s2idle]; 0 suspends, 0 failed; last_hw_sleep 0 us"
+  },
+  {
+    "row": "igpu",
+    "status": "pass",
+    "value": "1002:1638 amdgpu; connected eDP-1; session wayland"
+  },
+  {
+    "row": "display",
+    "status": "fail",
+    "value": "scale 1.5, Apex default is 2.0; eDP-1 SDC 0x4154; mode 2880x1800@90.001; scale 1.5; backlight yes"
+  },
+  {
+    "row": "wifi",
+    "status": "pass",
+    "value": "8086:2723 iwlwifi wlp2s0 connected; 0 suspends this boot"
+  },
+  {
+    "row": "bluetooth",
+    "status": "pass",
+    "value": "8087:0029 btusb; powered yes; 2 paired devices"
+  },
+  {
+    "row": "audio",
+    "status": "pass",
+    "value": "ALC294 0x10431ab2; pins internal mic, internal speaker, jack headphone; routes analog-input-mic, analog-output-headphones, analog-output-speaker, hdmi-output-0; 0 quirk lines in the kernel log"
+  },
+  {
+    "row": "hdmi_audio",
+    "status": "pass",
+    "value": "1002:1637 R6xx HDMI; 1 playback devices; 0 monitors with audio connected"
+  },
+  {
+    "row": "fingerprint",
+    "status": "pass",
+    "value": "04f3:0c6e; fprintd sees ElanTech Fingerprint Sensor; 0 fingers enrolled; libfprint 1:1.95.1+tod1-0ubuntu2"
+  },
+  {
+    "row": "webcam",
+    "status": "pass",
+    "value": "13d3:5458 USB2.0 HD UVC WebCam: USB2.0 HD; /dev/video0; PipeWire video source present"
+  },
+  {
+    "row": "storage",
+    "status": "pass",
+    "value": "nvme0n1 WD_BLACK SN770 1TB; discard_max_bytes 2199023255040; fstrim.timer enabled; / is ext4"
+  },
+  {
+    "row": "input",
+    "status": "pass",
+    "value": "touchpad ASUE1A00:00 04F3:31DE Touchpad, three-finger gestures; hotkeys Asus WMI hotkeys; keyboard backlight asus::kbd_backlight 0-3"
+  },
+  {
+    "row": "battery",
+    "status": "fail",
+    "value": "UPower does not support the limit; the battery charges to 100%; BAT0 end threshold 100; UPower supported false, enabled false, end 0; 0 suspends this boot"
+  },
+  {
+    "row": "firmware",
+    "status": "pass",
+    "value": "UEFI, Secure Boot off; 6 of 6 firmware files; kernel log 0 failures"
+  }
+]

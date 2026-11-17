@@ -2,6 +2,7 @@
 
 import pathlib
 import subprocess
+import sys
 import tempfile
 import unittest
 
@@ -37,6 +38,20 @@ class InstallTest(unittest.TestCase):
                     installed = pathlib.Path(destdir, "usr", relative)
                     self.assertTrue(installed.is_file())
                     self.assertEqual(installed.stat().st_mode & 0o777, 0o644)
+
+    def test_installs_a_runnable_acceptance_program(self) -> None:
+        with tempfile.TemporaryDirectory() as destdir:
+            subprocess.run([INSTALL, destdir], check=True)
+            program = pathlib.Path(destdir, "usr/libexec/apex-hardware/accept")
+            self.assertEqual(program.stat().st_mode & 0o777, 0o755)
+            done = subprocess.run(
+                [sys.executable, program, "--help"],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(done.returncode, 0, done.stderr)
+            self.assertIn("--json", done.stdout)
 
     def test_requires_a_destdir(self) -> None:
         result = subprocess.run([INSTALL], capture_output=True, check=False)
