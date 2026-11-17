@@ -23,6 +23,9 @@ It also installs the acceptance checks as
 `/usr/libexec/apex-hardware/accept`: one check per row of the reference
 machine table, described in [docs/acceptance.md](docs/acceptance.md).
 
+Decisions about hard hardware problems, such as how the NVIDIA driver gets
+into the image, are in [docs/adr/](docs/adr/).
+
 ## Building and testing
 
 You need [`just`](https://github.com/casey/just) and
