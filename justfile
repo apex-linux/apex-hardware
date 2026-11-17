@@ -23,5 +23,6 @@ accept *rows:
         {{rows}}
 
 # Installs the components under <destdir>/usr, the contract apex-image uses.
-install destdir:
-    scripts/install.sh "{{destdir}}"
+# A flavor, such as nvidia, adds the files in flavors/<flavor>.
+install destdir flavor="":
+    scripts/install.sh "{{destdir}}" {{flavor}}

@@ -1,0 +1,14 @@
+# Matches: every machine that boots the nvidia image flavor. The flavor is
+#   meant for machines with an NVIDIA GPU that the open kernel module drives.
+# Why: nouveau and nova_core bind the GPU first if they can, and then the
+#   nvidia module cannot. negativo17's modprobe.d file blacklists them for
+#   the running system, but its %post cannot set kernel arguments in a
+#   container build, and the initramfs needs its own blacklist. bootc applies
+#   these arguments on the switch to the flavor and removes them on the switch
+#   back. nvidia-drm.modeset=1 is the driver default since 560 and is left out
+#   (docs/adr/0001-nvidia-image-flavor.md).
+kargs = [
+  "rd.driver.blacklist=nouveau,nova_core",
+  "modprobe.blacklist=nouveau,nova_core",
+]
+match-architectures = ["x86_64"]

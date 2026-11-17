@@ -29,8 +29,13 @@ _MODPROBE = re.compile(r"(alias|blacklist|install|remove|options|softdep)\s+\S")
 
 
 def _installed(pattern: str) -> list[pathlib.Path]:
-    """Returns component files whose path under usr/ matches a glob."""
-    return sorted(COMPONENTS.glob(f"*/usr/{pattern}"))
+    """Returns component and flavor files whose path under usr/ matches."""
+    return sorted(
+        [
+            *COMPONENTS.glob(f"*/usr/{pattern}"),
+            *(ROOT / "flavors").glob(f"*/*/usr/{pattern}"),
+        ]
+    )
 
 
 def _rules(path: pathlib.Path) -> list[str]:
