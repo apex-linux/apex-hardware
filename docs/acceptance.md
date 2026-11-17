@@ -5,6 +5,106 @@ One check per row of the
 A row is done when its check passes on the machine, not when a fix is
 written.
 
+## Run book
+
+For the owner, on the M7400QC with Apex installed. One full run takes
+about twenty minutes, most of it the guided steps. The M1 exit is a record
+from such a run in which every row is `PASS`.
+
+### Before the run
+
+1.  **Be on the NVIDIA flavor.** The `dgpu` row needs the NVIDIA driver,
+    so install or switch to the image tag that `apex-image` publishes for
+    the flavor, `main-nvidia`, then reboot:
+
+    ```bash
+    sudo bootc switch ghcr.io/apex-linux/apex:main-nvidia
+    ```
+
+    The record's "NVIDIA module" line shows the driver version; "not
+    loaded" means the machine is on the base image.
+2.  **Keep Secure Boot off** in the firmware setup. The flavor's module is
+    unsigned until M3, and with Secure Boot on it does not load.
+3.  **Have at hand:** wired headphones; Bluetooth headphones and a Bluetooth
+    mouse or keyboard; a display with speakers (a TV works) and an HDMI
+    cable; a Wi-Fi network with internet access, for the browser camera
+    page.
+4.  **Start from a fresh boot:** power off, power on, log in to GNOME as
+    your own user (not root), connect to Wi-Fi, and unplug the headphones
+    and the HDMI cable. Leave the machine idle for a minute, so that the
+    discrete GPU is asleep when the run starts.
+
+### The run
+
+Open Terminal and run:
+
+```bash
+apex-accept
+```
+
+It first runs every automated check, which takes about half a minute and
+needs nothing from you. Then it asks you, one step at a time:
+
+1.  **Suspend and wake** once from the system menu, then press Enter. It
+    checks that the suspend reached hardware sleep and measures `dgpu`,
+    `cpu`, `wifi` and `battery` again.
+2.  **The guided steps** for each row, in table order: open an app on the
+    discrete GPU and close it; switch the three power modes; move the
+    brightness slider; pair Bluetooth devices; test the speakers, the
+    headphone jack and the microphone in Settings; connect the HDMI
+    display; enroll a finger three times, unlock with it and authorize
+    `pkexec true` with it; look at Camera and the browser camera page; and
+    try the gestures, the keyboard backlight and the function keys.
+
+Each step says what to do. When it shows `[Enter when done, s to skip]`,
+do it and press Enter; a check then runs on its own. When it asks
+`[y/n/s]`, answer what you saw or heard: `y`, `n`, or `s` to skip. Answer
+`n` whenever something was wrong, even slightly; the record keeps your
+answer next to the question.
+
+At the end it prints one line per row and writes the record:
+
+*   `PASS`: the automated check and every step passed.
+*   `FAIL`: something failed; the line starts with what.
+*   `TODO`: a step was skipped or not answered.
+*   `SKIP`: the machine lacks that hardware (none should on the M7400QC).
+
+A skipped step leaves its row at `TODO`; run `apex-accept` again from the
+start to finish it, since only a run of every row writes a record.
+
+### Sending the record back
+
+The run prints where it wrote the record, for example
+`~/apex-acceptance/2026-11-20-apex-45.md` and its `.json`. Send back both
+files unchanged, whatever the result: a failing record is evidence too.
+Either add them to `docs/records/` in a pull request to this repository,
+titled "Record the 2026-11-20 acceptance run on Apex 45", or hand them to
+the session that maintains this repository, which commits them that way.
+
+### When a row fails
+
+The record says why. The usual first moves:
+
+*   `dgpu` with "runtime D3 is Disabled": the NVIDIA module lacks the
+    Linux 7.3 fix ([ADR 0001](adr/0001-nvidia-image-flavor.md)); this is an
+    image problem, not a setting.
+*   `fingerprint` with "does not use pam_fprintd": the image did not turn
+    on authselect's `with-fingerprint` ([ADR 0002](adr/0002-elan-fingerprint-patches.md)).
+*   `audio` with "no" on the speakers: [ADR 0003](adr/0003-alc294-audio-no-fix.md)
+    lists the two `model=` options to try next.
+*   `battery` at 100%: `cat /var/lib/upower/charging-threshold-status`
+    should print `1`; if it does, UPower did not see the threshold, and
+    `udevadm info /sys/class/power_supply/BAT0 | grep CHARGE_LIMIT` shows
+    whether its rule ran.
+*   Anything else: send the record as it is.
+
+### Optional: the base image
+
+A second run on the base image (`ghcr.io/apex-linux/apex:main`, no NVIDIA
+driver) answers whether the discrete GPU also reaches D3cold with `nouveau`
+([salvage](salvage.md#what-only-an-installed-apex-can-show)). It is not
+part of the M1 exit; its `dgpu` row is the only one that matters.
+
 ## Running them
 
 From a clone, logged in to GNOME as an ordinary user:
@@ -71,6 +171,7 @@ also run their automated check again on a resumed machine.
 A check that cannot read the journal (the user is not in the `wheel` or
 `systemd-journal` group) says so instead of failing.
 
-## Baselines
+## Records and baselines
 
-Results recorded on the reference machine are in [baselines/](baselines/).
+Runs on an installed Apex are in [records/](records/). Results from the
+previous system, measured before Apex, are in [baselines/](baselines/).
