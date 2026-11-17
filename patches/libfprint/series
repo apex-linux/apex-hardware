@@ -1,0 +1,6 @@
+# Patches for Fedora's libfprint, applied in this order with `git am` or
+# `patch -p1`. Base: upstream tag v1.94.100, which Fedora 45 ships unpatched.
+# Drop both when upstream retries 0x00 and 0xaf on 04f3:0c6e; 0001 then
+# stops applying, which is the signal (docs/adr/0002-elan-fingerprint-patches.md).
+0001-elan-Retry-transient-pre-scan-status-on-04f3-0c6e.patch
+0002-elan-Bound-transient-retries-with-lift-semantics.patch
