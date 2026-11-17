@@ -16,6 +16,12 @@ lint:
 test:
     PYTHONPATH=src uv run --frozen python -m unittest discover -s tests -t . -p '*_test.py'
 
+# Runs the acceptance checks on this machine; pass row names to run a few.
+accept *rows:
+    @PYTHONPATH=src python3 -m apex_hw.entrypoints.accept \
+        --firmware-list components/firmware/usr/share/apex-hardware/firmware.txt \
+        {{rows}}
+
 # Installs the components under <destdir>/usr, the contract apex-image uses.
 install destdir:
     scripts/install.sh "{{destdir}}"

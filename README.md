@@ -19,6 +19,10 @@ graphics or a vendor's battery interface. It holds a `README.md` that says
 which hardware it matches and why each file exists, and a `usr/` tree that
 is copied into the image as it is.
 
+It also installs the acceptance checks as
+`/usr/libexec/apex-hardware/accept`: one check per row of the reference
+machine table, described in [docs/acceptance.md](docs/acceptance.md).
+
 ## Building and testing
 
 You need [`just`](https://github.com/casey/just) and
@@ -29,6 +33,7 @@ linter that the recipes use.
 just lint
 just test
 just install build/root
+just accept
 ```
 
 ## License
