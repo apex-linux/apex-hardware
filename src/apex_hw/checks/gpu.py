@@ -61,11 +61,57 @@ def _share(host: host_lib.Host, path: str) -> str:
     return f"{100 * down / (down + up):.1f}%" if down + up else "unknown"
 
 
+def nvidia_params(text: str) -> dict[str, str]:
+    """Parses /proc/driver/nvidia/params, "Name: value" per line."""
+    params = {}
+    for line in text.splitlines():
+        name, _, value = line.partition(":")
+        params[name.strip()] = value.strip()
+    return params
+
+
+def _nvidia_view(
+    host: host_lib.Host, gpu: devices.Device
+) -> tuple[list[str], list[str]]:
+    """Returns (problems, facts) from the nvidia driver's own reports.
+
+    Call it only after the power reading: the per-GPU power file is
+    produced by the driver and may wake the GPU.
+    """
+    params = nvidia_params(host.read("/proc/driver/nvidia/params") or "")
+    bdf = gpu.path.rsplit("/", 1)[-1]
+    power = host.read(f"/proc/driver/nvidia/gpus/{bdf}/power") or ""
+    rtd3 = next(
+        (
+            line.split(":", 1)[1].strip()
+            for line in power.splitlines()
+            if line.startswith("Runtime D3 status:")
+        ),
+        "unknown",
+    )
+    problems = []
+    if not rtd3.startswith("Enabled"):
+        problems.append(f"nvidia runtime D3 is {rtd3}")
+    facts = [
+        f"nvidia {host.read('/sys/module/nvidia/version') or 'unknown'}",
+        f"runtime D3 {rtd3}",
+        "DynamicPowerManagement "
+        + params.get("DynamicPowerManagement", "unknown"),
+        "UseKernelSuspendNotifiers "
+        + params.get("UseKernelSuspendNotifiers", "unknown"),
+        "EnableS0ixPowerManagement "
+        + params.get("EnableS0ixPowerManagement", "unknown"),
+    ]
+    return problems, facts
+
+
 def check_dgpu(host: host_lib.Host) -> result.Result:
     """Checks that the discrete GPU is runtime-suspended in D3cold.
 
-    It reads only power attributes, so it never wakes the GPU itself. It
-    waits up to fifteen seconds for the GPU to suspend after a recent use.
+    It reads only power attributes until it has its reading, so it does not
+    wake the GPU it measures. It waits up to fifteen seconds for the GPU to
+    suspend after a recent use. With the nvidia driver bound it then adds
+    the driver's runtime D3 status and power parameters.
     """
     _, other = _split(host)
     if not other:
@@ -91,4 +137,8 @@ def check_dgpu(host: host_lib.Host) -> result.Result:
         f"control {control}, {status}, {state or 'no power_state'}",
         f"suspended {_share(host, gpu.path)} of the time since boot",
     ]
+    if gpu.driver == "nvidia":
+        nvidia_problems, nvidia_facts = _nvidia_view(host, gpu)
+        problems += nvidia_problems
+        facts += nvidia_facts
     return result.judge(DGPU_ROW, problems, facts)
