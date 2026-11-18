@@ -93,6 +93,11 @@ The record says why. The usual first moves:
     image problem, not a setting.
 *   `fingerprint` with "does not use pam_fprintd": the image did not turn
     on authselect's `with-fingerprint` ([ADR 0002](adr/0002-elan-fingerprint-patches.md)).
+*   `fingerprint` with "no" on the enroll step: send the record together
+    with the output of `journalctl -b -u fprintd`, which names the byte
+    the reader sent ([ADR 0002](adr/0002-elan-fingerprint-patches.md)).
+    If Settings then says the reader is in use, close Settings and open
+    it again; that releases the reader.
 *   `audio` with "no" on the speakers: [ADR 0003](adr/0003-alc294-audio-no-fix.md)
     lists the two `model=` options to try next.
 *   `battery` at 100%: `cat /var/lib/upower/charging-threshold-status`
@@ -100,6 +105,21 @@ The record says why. The usual first moves:
     `udevadm info /sys/class/power_supply/BAT0 | grep CHARGE_LIMIT` shows
     whether its rule ran.
 *   Anything else: send the record as it is.
+
+Two kernel messages appear on this machine under Ubuntu as well, and are
+not faults by themselves:
+
+*   `Bluetooth: hci0: FW download error recovery failed (-19)`, with
+    `sending frame failed (-19)` and similar `hci0` lines: after a reboot
+    from another system the Intel controller still runs its firmware, so
+    the driver resets it; it leaves the USB bus and comes back, and the
+    second attempt loads `ibt-20-1-3.sfi` about two seconds later. The
+    `bluetooth` row checks that it is powered and works.
+*   `i2c i2c-2: SMBus Timeout!` with `Failed reset at end of transaction`:
+    one failed transaction on the chipset's SMBus (`piix4_smbus` port 0)
+    while it is set up, logged on every boot. No row uses that bus: the
+    touchpad is on the DesignWare I2C bus `i2c-1`, and the `input` row
+    checks it.
 
 ### Optional: the base image
 

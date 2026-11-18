@@ -1,0 +1,113 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Apex <apex@localhost>
+Date: Wed, 18 Nov 2026 21:00:00 +0700
+Subject: [PATCH] elan: Never fail a 04f3:0c6e capture on its pre-scan answer
+
+On an installed system with 0001 and 0002, enrollment on the 0x0c6e
+still ends at once with FP_DEVICE_ERROR_PROTO, during the identify that
+fprintd runs before an enrollment:
+
+  Device reported an error during identify for enroll: The driver
+  encountered a protocol error with the device.
+
+With 0001 and 0002 the only source of that error in a capture is the
+last branch of CAPTURE_READ_DATA: a pre-scan answer other than 0x55,
+0x00 and 0xaf, or a read that returned no byte. Debug logs from other
+0x0c6e units (libfprint#808, #916) show when it happens: a capture
+that starts right after the previous one, with the finger still on the
+power key while calibration takes the background. Calibration then
+accepts a background with a delta of 170 to 225 instead of about 30,
+and the next pre-scan read blocks for most of a second before it
+answers something other than 0x55. Those logs come from builds without
+0001, so they do not show the byte.
+
+For ELAN_RETRY_UNEXPECTED_STATUS devices (0x0c6e), handle any other
+answer, and an empty read, the way 0002 handles 0x00 and 0xaf: after a
+frame it means the finger was lifted; before one it is retried with the
+same back-off, and a run of such answers ends after ELAN_CMD_TIMEOUT
+as a read timeout would. The session therefore never ends with a
+protocol error on this device, and fprintd retries the scan instead of
+reporting enroll-disconnected.
+
+The first unexpected answer of a run is logged as a warning, which
+fprintd's journal keeps without G_MESSAGES_DEBUG, so the byte this
+sensor sends shows up in the next report. A read without a byte is
+logged as 0x100.
+
+No other device changes behaviour.
+
+Refs: libfprint#808 #916 #879
+---
+ libfprint/drivers/elan.c | 19 +++++++++++++++++--
+ libfprint/drivers/elan.h |  7 +++++++
+ 2 files changed, 24 insertions(+), 2 deletions(-)
+
+diff --git a/libfprint/drivers/elan.c b/libfprint/drivers/elan.c
+index 03576d5..cd301c0 100644
+--- a/libfprint/drivers/elan.c
++++ b/libfprint/drivers/elan.c
+@@ -557,6 +557,11 @@ enum capture_states {
+  * path. Nothing may complete the SSM while the delay is pending:
+  * fpi_ssm_mark_completed () does not refuse, it logs a BUG_ON critical,
+  * drops the pending jump and completes the SSM. */
++/* The pre-scan answer for log lines: the byte, or 0x100 for a read that
++ * returned no byte at all. */
++#define ELAN_PRE_SCAN_ANSWER(self) \
++  ((self)->last_read ? (unsigned int) (self)->last_read[0] : 0x100u)
++
+ static void
+ elan_transient_status (FpiSsm *ssm, FpiDeviceElan *self)
+ {
+@@ -570,7 +575,7 @@ elan_transient_status (FpiSsm *ssm, FpiDeviceElan *self)
+   if ((self->dev_type & ELAN_TRANSIENT_STATUS_LIFT) && self->num_frames > 0)
+     {
+       fp_dbg ("pre-scan status 0x%02x after %d frames: finger lifted",
+-              self->last_read[0], self->num_frames);
++              ELAN_PRE_SCAN_ANSWER (self), self->num_frames);
+       fpi_ssm_mark_completed (ssm);
+       return;
+     }
+@@ -598,7 +603,7 @@ elan_transient_status (FpiSsm *ssm, FpiDeviceElan *self)
+ 
+   self->transient_retries++;
+   fp_dbg ("transient pre-scan status 0x%02x: retry %u in %d ms",
+-          self->last_read[0], self->transient_retries, delay_ms);
++          ELAN_PRE_SCAN_ANSWER (self), self->transient_retries, delay_ms);
+   fpi_ssm_jump_to_state_delayed (ssm, CAPTURE_WAIT_FINGER, delay_ms);
+ }
+ 
+@@ -639,6 +644,16 @@ capture_run_state (FpiSsm *ssm, FpDevice *dev)
+            * 0xaf - finger removed or sensor busy (seen on 0x0c58 and 0x0c6e) */
+           elan_transient_status (ssm, self);
+         }
++      else if (self->dev_type & ELAN_RETRY_UNEXPECTED_STATUS)
++        {
++          /* any other answer, or a read that returned no byte: handled as a
++           * transient answer, so it is bounded and never a protocol error */
++          if (self->transient_retries == 0)
++            fp_warn ("unexpected pre-scan status 0x%02x after %d frames: "
++                     "handling it as transient",
++                     ELAN_PRE_SCAN_ANSWER (self), self->num_frames);
++          elan_transient_status (ssm, self);
++        }
+       else
+         {
+           /* XXX: The timeout is emulated incorrectly, resulting in a zero byte read. */
+diff --git a/libfprint/drivers/elan.h b/libfprint/drivers/elan.h
+index 1e866f6..3d79121 100644
+--- a/libfprint/drivers/elan.h
++++ b/libfprint/drivers/elan.h
+@@ -61,6 +61,13 @@
+  * so an idle sensor that keeps answering cannot poll at 100 Hz. */
+ #define ELAN_TRANSIENT_STATUS_BACKOFF ELAN_0C6E
+ 
++/* devices on which any other pre-scan answer, or a read that returned no
++ * byte, is handled like 0x00 and 0xaf instead of failing the session with
++ * FP_DEVICE_ERROR_PROTO. The 0x0c6e answers something else when the capture
++ * starts soon after the previous one, with the finger still on the sensor
++ * while calibration takes the background (libfprint#808, #916). */
++#define ELAN_RETRY_UNEXPECTED_STATUS ELAN_0C6E
++
+ /* min FW version that supports calibration */
+ #define ELAN_MIN_CALIBRATION_FW 0x0138
+ 

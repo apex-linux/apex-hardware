@@ -3,6 +3,7 @@
 *   Status: proposed; accepted once `apex-image` ships the rebuilt
     `libfprint`
 *   Date: 2026-11-17, revised for M1 the same day (fingerprint in PAM)
+    and on 2026-11-18 (patch 0003, after the first install)
 *   Decides for: `apex-image` (a rebuilt `libfprint`) and this repository
 
 ## Context
@@ -37,12 +38,45 @@ Facts as of 2026-11-17:
     enrolled: enrollment on this host is unproven, and upstream issues #500
     and #916 report the same Ubuntu package failing on this reader.
 
+The first install on the reference machine, 2026-11-18
+(`ghcr.io/apex-linux/apex:main` with `libfprint-1.94.100-1.fc45.apex`,
+whose build log shows 0001 and 0002 applied), still could not enroll:
+
+*   fprintd logged "Device reported an error during identify for enroll:
+    The driver encountered a protocol error with the device." The
+    identify is fprintd's duplicate check, which it runs before every
+    enrollment on a device with the identify feature. On an image device
+    such as `elan` it is an ordinary capture, so it is not a missing
+    feature of the driver: it fails where any capture fails.
+*   With 0001 and 0002 the only source of that error in a capture is the
+    last branch of `CAPTURE_READ_DATA`: a pre-scan answer other than
+    `0x55`, `0x00` and `0xaf`, or a read with no byte. The default journal
+    does not show which; 0001 logs it at debug level only.
+*   Debug logs from other `0x0c6e` units (issues #808 and #916, both
+    without 0001) show when it happens: a capture that starts soon after
+    the previous one, with the finger still on the key while calibration
+    takes the background. Calibration then accepts a delta of 170 to 225
+    instead of about 30, and the next pre-scan read answers something
+    other than `0x55` after most of a second.
+*   The second message, "Device was already claimed", follows from the
+    first: fprintd keeps the claim until the client releases it or leaves
+    the bus, and GNOME Settings claimed again without releasing. Closing
+    Settings frees the reader.
+
 ## Decision
 
-*   Keep both patches, `0001-elan-Retry-transient-pre-scan-status-on-04f3-0c6e`
+*   Keep the patches `0001-elan-Retry-transient-pre-scan-status-on-04f3-0c6e`
     and `0002-elan-Bound-transient-retries-with-lift-semantics`, and rebuild
     Fedora's `libfprint` with them in `apex-image`. If a patch stops
     applying, ship Fedora's package unchanged rather than block the image.
+*   Add `0003-elan-Never-fail-a-04f3-0c6e-capture-on-its-pre-scan-answer`:
+    on `0x0c6e`, every other pre-scan answer, and an empty read, takes
+    0002's path for `0x00` and `0xaf`. After a frame it ends the capture
+    as a lift; before one it is retried with the same back-off, and a run
+    ends after the command timeout as a read timeout would. fprintd then
+    asks for another swipe instead of reporting the device as
+    disconnected. The first such answer of a run is logged as a warning,
+    so the next journal from the machine names the byte.
 *   Move the patches and a `series` file into this repository under
     `patches/libfprint/`, so that the fix lives next to the check that
     proves it. They are code we do not own and keep upstream's style.
@@ -66,7 +100,11 @@ Facts as of 2026-11-17:
 
 *   Apex carries a rebuilt `libfprint` until !655 or an equivalent lands
     and reaches Fedora. Patch 0001 stops applying when it does, which is
-    the signal to drop both.
+    the signal to drop the series.
+*   0003 trades a protocol error for at most ten seconds of retries per
+    capture. If the byte it logs turns out to mean the sensor needs a new
+    background, the fix belongs in calibration instead, and 0003 shrinks
+    to that byte.
 *   The `fingerprint` row passes only when three enrollments, an unlock and
     an authorization all succeed. Its probes report a missing
     `with-fingerprint` as the reason when unlock or authorize fail.
@@ -76,8 +114,10 @@ Facts as of 2026-11-17:
 *   Fedora: <https://src.fedoraproject.org/rpms/libfprint/tree/f45>,
     <https://bodhi.fedoraproject.org/updates/FEDORA-2026-0fc997c9b4>
 *   libfprint: <https://gitlab.freedesktop.org/libfprint/libfprint/-/raw/master/libfprint/drivers/elan.c>,
-    merge requests !655, !647, !530 and issues #879, #916 on
+    merge requests !655, !647, !530 and issues #808, #879, #916 on
     <https://gitlab.freedesktop.org/libfprint/libfprint>
 *   libfprint-TOD: <https://gitlab.freedesktop.org/3v1n0/libfprint>
 *   The patches: `packaging/libfprint/patches/` in the archived
     `legacy-apex-kernel` repository
+*   fprintd 1.94.5: `enroll_identify_cb()` and the claim check in
+    `src/device.c`, <https://gitlab.freedesktop.org/libfprint/fprintd>
