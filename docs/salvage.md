@@ -27,7 +27,7 @@ installed Apex, the dropped file is the first thing to try.
 | `apex-system` `monitors.xml`, `profile.toml` `[panel]` | Not hardware | Scale 2 is a desktop default; `apex-desktop` sets it, and the `display` row checks it | `display` |
 | `apex-system` `hardware/m7400qc/audio/` (`coef-dump.sh`, `try-fix.sh`, the HDA patch firmware) | Dropped | The fault it chased needed a warm reboot from Windows, and the fix was never measured; [ADR 0003](adr/0003-alc294-audio-no-fix.md) | `audio` (the speaker step) |
 | `apex-kernel` `0001-ALSA-hda-realtek-Fix-speaker-output-on-ASUS-M7400QC.patch` | Dropped | Same; Apex ships Fedora's kernel | `audio` |
-| `apex-kernel` libfprint `0001`, `0002` | Carried over as `patches/libfprint` | Fedora 45's libfprint still ends a session on the reader's transient answers; [ADR 0002](adr/0002-elan-fingerprint-patches.md) | `fingerprint` (the enroll step) |
+| `apex-kernel` libfprint `0001`, `0002` | Carried over as `patches/libfprint`, with a new `0003` | Fedora 45's libfprint still ends a session on the reader's transient answers, and the first install showed a further answer that 0002 does not cover; [ADR 0002](adr/0002-elan-fingerprint-patches.md) | `fingerprint` (the enroll step) |
 | `apex-kernel` libfprint `0101`, `0102` | Left in the archive | Disabled there, for faults nobody has logged on this reader | `fingerprint` |
 
 ## What only an installed Apex can show
